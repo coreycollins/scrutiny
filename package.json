@@ -1,0 +1,19 @@
+{
+  "name": "scrutiny",
+  "version": "0.0.1",
+  "description": "A PostgresSQL audit system for staging tables",
+  "main": "index.js",
+  "scripts": {
+    "test": "ava"
+  },
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "ava": "^0.15.0"
+  },
+  "dependencies": {
+    "bluebird": "^3.4.0",
+    "seneca": "^2.1.0",
+    "seneca-entity": "^0.1.1"
+  }
+}
