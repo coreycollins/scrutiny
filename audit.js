@@ -1,6 +1,15 @@
 var Promise = require('bluebird')
+var merge = require('merge')
 
 module.exports = function audit (options) {
+  function _upsert (context, audit) {
+    var auditEntity = context.make('audits', 'audit')
+    return Promise.promisify(auditEntity.load$, {context: auditEntity})(audit.id)
+      .then((oldAudit) => {
+        var newAudit = merge(oldAudit, audit)
+        return Promise.promisify(newAudit.save$, {context: newAudit})()
+      })
+  }
   /**
    *  cmd "list" retreives all audits sorted by created date.
    *
@@ -78,13 +87,23 @@ module.exports = function audit (options) {
    *  audit for QA by the auditor.
    */
   this.add({role: 'audit', cmd: 'submit'}, function (msg, done) {
-    var auditEntity = this.make('audits', 'audit')
-
-    Promise.promisify(auditEntity.load$, {context: auditEntity})(msg.id)
+    msg.audit.status = 'submitted'
+    _upsert(this, msg.audit)
       .then((audit) => {
-        audit.status = 'submitted'
-        return Promise.promisify(audit.save$, {context: audit})()
+        done(null, audit)
       })
+      .catch((err) => {
+        done(err)
+      })
+  })
+
+  /**
+   *  cmd "approve" calls the database action to approve an audit
+   *  for migration.
+   */
+  this.add({role: 'audit', cmd: 'approve'}, function (msg, done) {
+    msg.audit.status = 'approved'
+    _upsert(this, msg.audit)
       .then((audit) => {
         done(null, audit)
       })

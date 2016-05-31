@@ -107,7 +107,7 @@ test('submit an audit', t => {
 
   return Promise.promisify(audit.save$, {context: audit})()
     .then((audit) => {
-      return act({role: 'audit', cmd: 'submit', id: audit.id})
+      return act({role: 'audit', cmd: 'submit', audit: audit})
     })
     .then((result) => {
       t.is(result.status, 'submitted')
