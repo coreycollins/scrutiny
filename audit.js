@@ -108,12 +108,14 @@ module.exports = function audit (options) {
   this.add({role: 'audit', cmd: 'approve'}, function (msg, done) {
     var audit = msg.audit
 
-    // TODO: call migration service to start audit migration
+    var act = Promise.promisify(this.act, {context: this})
 
-    audit.status = 'approved'
-    _upsert(this, audit)
+    act({role: 'migration', cmd: 'execute', audit: audit})
+      .then(() => {
+        audit.status = 'approved'
+        return _upsert(this, audit)
+      })
       .then((audit) => {
-        // TODO: notify submitter of success and approval
         done(null, audit)
       })
       .catch((err) => {
@@ -128,10 +130,13 @@ module.exports = function audit (options) {
   this.add({role: 'audit', cmd: 'reject'}, function (msg, done) {
     var audit = msg.audit
 
-    // TODO: call migration service to drop all rows with job_id
+    var act = Promise.promisify(this.act, {context: this})
 
-    audit.status = 'rejected'
-    _upsert(this, audit)
+    act({role: 'migration', cmd: 'drop', audit: audit})
+      .then(() => {
+        audit.status = 'rejected'
+        return _upsert(this, audit)
+      })
       .then((audit) => {
         done(null, audit)
       })

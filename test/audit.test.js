@@ -9,6 +9,7 @@ test.beforeEach(t => {
   })
     .use('entity')
     .use('../audit.js')
+    .use('../migration.js')
 })
 
 test('retrieve audits list', t => {
@@ -119,7 +120,7 @@ test('approve an audit', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})
 
-  var audit = seneca.make('audits', 'audit', {name: 'Test', job_id: 1234})
+  var audit = seneca.make('audits', 'audit', {name: 'Test', job_id: 1234, table_name: 'staging_test'})
 
   return Promise.promisify(audit.save$, {context: audit})()
     .then((audit) => {
@@ -135,7 +136,7 @@ test('reject an audit', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})
 
-  var audit = seneca.make('audits', 'audit', {name: 'Test', job_id: 1234})
+  var audit = seneca.make('audits', 'audit', {name: 'Test', job_id: 1234, table_name: 'staging_test'})
 
   return Promise.promisify(audit.save$, {context: audit})()
     .then((audit) => {
