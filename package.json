@@ -14,6 +14,8 @@
   "dependencies": {
     "bluebird": "^3.4.0",
     "merge": "^1.2.0",
+    "pg": "^4.5.5",
+    "pg-promise": "^4.3.5",
     "seneca": "^2.1.0",
     "seneca-entity": "^0.1.1"
   }
