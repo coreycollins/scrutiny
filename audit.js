@@ -10,6 +10,10 @@ module.exports = function audit (options) {
         return Promise.promisify(newAudit.save$, {context: newAudit})()
       })
   }
+
+  // promisify act
+  var act = Promise.promisify(this.act, {context: this})
+
   /**
    *  cmd "list" retreives all audits sorted by created date.
    *
@@ -108,8 +112,6 @@ module.exports = function audit (options) {
   this.add({role: 'audit', cmd: 'approve'}, function (msg, done) {
     var audit = msg.audit
 
-    var act = Promise.promisify(this.act, {context: this})
-
     act({role: 'migration', cmd: 'execute', audit: audit})
       .then(() => {
         audit.status = 'approved'
@@ -118,6 +120,7 @@ module.exports = function audit (options) {
       .then((audit) => {
         done(null, audit)
       })
+      // TODO: catch specific error
       .catch((err) => {
         done(err)
       })
@@ -130,8 +133,6 @@ module.exports = function audit (options) {
   this.add({role: 'audit', cmd: 'reject'}, function (msg, done) {
     var audit = msg.audit
 
-    var act = Promise.promisify(this.act, {context: this})
-
     act({role: 'migration', cmd: 'drop', audit: audit})
       .then(() => {
         audit.status = 'rejected'
@@ -140,6 +141,7 @@ module.exports = function audit (options) {
       .then((audit) => {
         done(null, audit)
       })
+      // TODO: catch specific error
       .catch((err) => {
         done(err)
       })
