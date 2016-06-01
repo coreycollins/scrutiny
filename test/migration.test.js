@@ -16,8 +16,18 @@ test('execute migration', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})
 
-  return t.notThrows(act({role: 'audit', cmd: 'create', job_id: 124, table: 'staging_test'})
+  t.notThrows(act({role: 'audit', cmd: 'create', job_id: 124, table: 'staging_test'})
     .then((audit) => {
       return act({role: 'migration', cmd: 'execute', audit: audit})
+    }))
+})
+
+test('drop migration', t => {
+  var seneca = t.context.seneca
+  var act = Promise.promisify(seneca.act, {context: seneca})
+
+  t.notThrows(act({role: 'audit', cmd: 'create', job_id: 123, table: 'staging_test'})
+    .then((audit) => {
+      return act({role: 'migration', cmd: 'drop', audit: audit})
     }))
 })
