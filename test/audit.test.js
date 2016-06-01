@@ -110,6 +110,39 @@ test('submit an audit', t => {
       return act({role: 'audit', cmd: 'submit', audit: audit})
     })
     .then((result) => {
+      t.is(result.name, 'Test')
       t.is(result.status, 'submitted')
+    })
+})
+
+test('approve an audit', t => {
+  var seneca = t.context.seneca
+  var act = Promise.promisify(seneca.act, {context: seneca})
+
+  var audit = seneca.make('audits', 'audit', {name: 'Test', job_id: 1234})
+
+  return Promise.promisify(audit.save$, {context: audit})()
+    .then((audit) => {
+      return act({role: 'audit', cmd: 'approve', audit: audit})
+    })
+    .then((result) => {
+      t.is(result.name, 'Test')
+      t.is(result.status, 'approved')
+    })
+})
+
+test('reject an audit', t => {
+  var seneca = t.context.seneca
+  var act = Promise.promisify(seneca.act, {context: seneca})
+
+  var audit = seneca.make('audits', 'audit', {name: 'Test', job_id: 1234})
+
+  return Promise.promisify(audit.save$, {context: audit})()
+    .then((audit) => {
+      return act({role: 'audit', cmd: 'reject', audit: audit})
+    })
+    .then((result) => {
+      t.is(result.name, 'Test')
+      t.is(result.status, 'rejected')
     })
 })

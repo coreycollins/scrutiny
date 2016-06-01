@@ -87,8 +87,12 @@ module.exports = function audit (options) {
    *  audit for QA by the auditor.
    */
   this.add({role: 'audit', cmd: 'submit'}, function (msg, done) {
-    msg.audit.status = 'submitted'
-    _upsert(this, msg.audit)
+    var audit = msg.audit
+    audit.status = 'submitted'
+
+    // TODO: notify auditor of audit submittal.
+
+    _upsert(this, audit)
       .then((audit) => {
         done(null, audit)
       })
@@ -102,8 +106,32 @@ module.exports = function audit (options) {
    *  for migration.
    */
   this.add({role: 'audit', cmd: 'approve'}, function (msg, done) {
-    msg.audit.status = 'approved'
-    _upsert(this, msg.audit)
+    var audit = msg.audit
+
+    // TODO: call migration service to start audit migration
+
+    audit.status = 'approved'
+    _upsert(this, audit)
+      .then((audit) => {
+        // TODO: notify submitter of success and approval
+        done(null, audit)
+      })
+      .catch((err) => {
+        done(err)
+      })
+  })
+
+  /**
+   *  cmd "reject" removes staging data for job_id and notifies the
+   *  the submitter.
+   */
+  this.add({role: 'audit', cmd: 'reject'}, function (msg, done) {
+    var audit = msg.audit
+
+    // TODO: call migration service to drop all rows with job_id
+
+    audit.status = 'rejected'
+    _upsert(this, audit)
       .then((audit) => {
         done(null, audit)
       })
