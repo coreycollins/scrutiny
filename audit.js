@@ -20,7 +20,11 @@ module.exports = function audit (options) {
    *  @optional schema - schema of table space to filter by.
    */
   this.add({role: 'audit', action: 'list'}, function (msg, done) {
-    this.make('audits', 'audit').list$({schema: msg.schema}, (err, audits) => {
+    var filters = {}
+    if (msg.schema) { filters['schema'] = msg.schema }
+    if (msg.status) { filters['status'] = msg.status }
+
+    this.make('audits', 'audit').list$(filters, (err, audits) => {
       done(err, audits)
     })
   })
