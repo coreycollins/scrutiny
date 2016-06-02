@@ -6,10 +6,11 @@
 
 var program = require('commander');
 var seneca = require('seneca')({
-  log: {
-    map: [] // Disable logging by passing no filters
-  }
-})
+    log: {
+      map: [] // Disable logging by passing no filters
+    }
+  }).client()
+  .use('entity')
 
 program
   .version('0.0.1')
@@ -32,35 +33,89 @@ program
 program
   .command('list [type]')
   .description('list audits in scrutiny')
-  .action(function(type) {
-    type = type || 'all'
-    seneca.client().act('role:audit,cmd:list', function(err, result){
+  .option('-s, --schema <schema>', 'Filter by schema')
+  .action(function(type, options) {
+    var action = {
+      role:'audit',
+      action: 'list'
+    }
+
+    if(type) { action['status'] = type }
+    if(options.schema) { action['schema'] = options.schema }
+
+    seneca.act(action, function(err, result){
       if (err) { console.log(err.msg); return }
 
       console.log(result);
     })
   })
 
+program
+  .command('create <table> <job_id>')
+  .description('create an audit')
+  .option('-n, --name <name>','the name of the audit')
+  .action(function(table, job_id, options) {
+    seneca.act({role:'audit', action:'create', job_id:job_id, table:table}, function(err, audit){
+      if (err) { console.log(err.msg); return }
+
+      console.log(`[created audit]\nid: ${audit.id}\nname: ${audit.name}\ntable: ${audit.table_name}`);
+    })
+  })
+
+  program
+    .command('status <id>')
+    .description('status of an audit')
+    .action(function(id) {
+      seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
+        if (err) { console.log(err.msg); return }
+
+        console.log(`${audit.name} ${audit.status}`);
+      })
+    })
 
 program
   .command('submit <id>')
   .description('submit an audit')
   .action(function(id) {
-    console.log(id);
+    seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
+      if (err) { console.log(err.msg); return }
+
+      seneca.client().act({role:'audit', action:'submit', audit:audit}, function(err, audit){
+          if (err) { console.log(err.msg); return }
+
+          console.log(`${audit.name} submitted`);
+      })
+    })
   })
 
 program
   .command('approve <id>')
   .description('approve an audit')
   .action(function(id) {
-    console.log(id);
+    seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
+      if (err) { console.log(err.msg); return }
+
+      seneca.client().act({role:'audit', action:'approve', audit:audit}, function(err, audit){
+          if (err) { console.log(err.msg); return }
+
+          console.log(`${audit.name} approved`);
+      })
+    })
   })
 
 program
   .command('reject <id>')
   .description('reject an audit')
   .action(function(id) {
-    console.log(id);
+    seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
+      if (err) { console.log(err.msg); return }
+      
+      seneca.client().act({role:'audit', action:'reject', audit:audit}, function(err, audit){
+          if (err) { console.log(err.msg); return }
+
+          console.log(`${audit.name} rejected`);
+      })
+    })
   })
 
 program.parse(process.argv);
