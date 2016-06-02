@@ -69,7 +69,7 @@ module.exports = function migration (options) {
    *  @required table - the name of the production database
    *  @required server_name - the name of the foreign data wrapper on the staging db
    */
-  this.add({role: 'staging', cmd: 'create'}, function (msg, done) {
+  this.add({role: 'staging', action: 'create'}, function (msg, done) {
     var targetServer = msg.server_name
     var targetTable = msg.table
     var foreignTable = 'foreign_' + targetTable
@@ -133,7 +133,7 @@ module.exports = function migration (options) {
    *
    *  @required table - the name of the production table
    */
-  this.add({role: 'staging', cmd: 'drop'}, function (msg, done) {
+  this.add({role: 'staging', action: 'drop'}, function (msg, done) {
     var targetTable = msg.table
     if (!targetTable) {
       done(new Error('no target table provided'))

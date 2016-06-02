@@ -19,7 +19,7 @@ module.exports = function audit (options) {
    *
    *  @optional schema - schema of table space to filter by.
    */
-  this.add({role: 'audit', cmd: 'list'}, function (msg, done) {
+  this.add({role: 'audit', action: 'list'}, function (msg, done) {
     this.make('audits', 'audit').list$({schema: msg.schema}, (err, audits) => {
       done(err, audits)
     })
@@ -30,7 +30,7 @@ module.exports = function audit (options) {
    *
    *  @required id - id of the  audit.
    */
-  this.add({role: 'audit', cmd: 'get'}, function (msg, done) {
+  this.add({role: 'audit', action: 'get'}, function (msg, done) {
     this.make('audits', 'audit').load$(msg.id, (err, audits) => {
       done(err, audits)
     })
@@ -41,7 +41,7 @@ module.exports = function audit (options) {
    *
    *  @required job_id - job id of the  audit.
    */
-  this.add({role: 'audit', cmd: 'getByJob'}, function (msg, done) {
+  this.add({role: 'audit', action: 'getByJob'}, function (msg, done) {
     this.make('audits', 'audit').list$({job_id: msg.job_id}, (err, audits) => {
       if (audits.length == 0) {
         done(new Error('no audits matching that job id'))
@@ -61,7 +61,7 @@ module.exports = function audit (options) {
    *    auidtor: <user>
    *  }
    */
-  this.add({role: 'audit', cmd: 'create'}, function (msg, done) {
+  this.add({role: 'audit', action: 'create'}, function (msg, done) {
     var options = msg.options || {}
 
     // Must pass a job id
@@ -90,7 +90,7 @@ module.exports = function audit (options) {
    *  cmd "submit" sets the audit status to 'submitted' to prepare the
    *  audit for QA by the auditor.
    */
-  this.add({role: 'audit', cmd: 'submit'}, function (msg, done) {
+  this.add({role: 'audit', action: 'submit'}, function (msg, done) {
     var audit = msg.audit
     audit.status = 'submitted'
 
@@ -109,10 +109,10 @@ module.exports = function audit (options) {
    *  cmd "approve" calls the database action to approve an audit
    *  for migration.
    */
-  this.add({role: 'audit', cmd: 'approve'}, function (msg, done) {
+  this.add({role: 'audit', action: 'approve'}, function (msg, done) {
     var audit = msg.audit
 
-    act({role: 'migration', cmd: 'execute', audit: audit})
+    act({role: 'migration', action: 'execute', audit: audit})
       .then(() => {
         audit.status = 'approved'
         return _upsert(this, audit)
@@ -130,10 +130,10 @@ module.exports = function audit (options) {
    *  cmd "reject" removes staging data for job_id and notifies the
    *  the submitter.
    */
-  this.add({role: 'audit', cmd: 'reject'}, function (msg, done) {
+  this.add({role: 'audit', action: 'reject'}, function (msg, done) {
     var audit = msg.audit
 
-    act({role: 'migration', cmd: 'drop', audit: audit})
+    act({role: 'migration', action: 'drop', audit: audit})
       .then(() => {
         audit.status = 'rejected'
         return _upsert(this, audit)

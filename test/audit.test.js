@@ -20,7 +20,7 @@ test('retrieve audits list', t => {
 
   return Promise.promisify(audit.save$, {context: audit})()
     .then((audit) => {
-      return act({role: 'audit', cmd: 'list'})
+      return act({role: 'audit', action: 'list'})
     })
     .then((result) => {
       t.is(result[0].name, 'Test')
@@ -44,7 +44,7 @@ test('retrieve audits list in schema (product)', t => {
 
   return Promise.all(actions)
     .then((audit) => {
-      return act({role: 'audit', cmd: 'list', schema: 'us cons'})
+      return act({role: 'audit', action: 'list', schema: 'us cons'})
     })
     .then((results) => {
       t.is(results[0].name, 'Test2')
@@ -59,7 +59,7 @@ test('get an audit by id', t => {
 
   return Promise.promisify(audit.save$, {context: audit})()
     .then((audit) => {
-      return act({role: 'audit', cmd: 'get', id: audit.id})
+      return act({role: 'audit', action: 'get', id: audit.id})
     })
     .then((result) => {
       t.is(result.name, 'Test')
@@ -74,7 +74,7 @@ test('get an audit by job id', t => {
 
   return Promise.promisify(audit.save$, {context: audit})()
     .then((audit) => {
-      return act({role: 'audit', cmd: 'getByJob', job_id: audit.job_id})
+      return act({role: 'audit', action: 'getByJob', job_id: audit.job_id})
     })
     .then((result) => {
       t.is(result.name, 'Test')
@@ -85,7 +85,7 @@ test('get audit by missing job id', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})
   t.plan(1)
-  t.throws(act({role: 'audit', cmd: 'getByJob', job_id: 1234}), /seneca: Action cmd:getByJob,role:audit failed.*/)
+  t.throws(act({role: 'audit', action: 'getByJob', job_id: 1234}), /seneca: Action action:getByJob,role:audit failed.*/)
 })
 
 test('create an audit', t => {
@@ -93,7 +93,7 @@ test('create an audit', t => {
   var act = Promise.promisify(seneca.act, {context: seneca})
   t.plan(2)
 
-  return act({role: 'audit', cmd: 'create', job_id: 1234, table: 'staging_table'})
+  return act({role: 'audit', action: 'create', job_id: 1234, table: 'staging_table'})
     .then((result) => {
       t.is(result.name, 'audit_1234')
       t.is(result.table_name, 'staging_table')
@@ -108,7 +108,7 @@ test('submit an audit', t => {
 
   return Promise.promisify(audit.save$, {context: audit})()
     .then((audit) => {
-      return act({role: 'audit', cmd: 'submit', audit: audit})
+      return act({role: 'audit', action: 'submit', audit: audit})
     })
     .then((result) => {
       t.is(result.name, 'Test')
@@ -124,7 +124,7 @@ test('approve an audit', t => {
 
   return Promise.promisify(audit.save$, {context: audit})()
     .then((audit) => {
-      return act({role: 'audit', cmd: 'approve', audit: audit})
+      return act({role: 'audit', action: 'approve', audit: audit})
     })
     .then((result) => {
       t.is(result.name, 'Test')
@@ -140,7 +140,7 @@ test('reject an audit', t => {
 
   return Promise.promisify(audit.save$, {context: audit})()
     .then((audit) => {
-      return act({role: 'audit', cmd: 'reject', audit: audit})
+      return act({role: 'audit', action: 'reject', audit: audit})
     })
     .then((result) => {
       t.is(result.name, 'Test')

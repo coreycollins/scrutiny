@@ -22,7 +22,7 @@ module.exports = function migration (options) {
    *
    *  @required audit - the audit to run migration on
    */
-  this.add({role: 'migration', cmd: 'execute'}, function (msg, done) {
+  this.add({role: 'migration', action: 'execute'}, function (msg, done) {
     var audit = msg.audit
     var foreignTable = audit.table_name.replace(/staging_/, 'foreign_')
     var sequence = `${audit.table_name}_sequence`
@@ -49,7 +49,7 @@ module.exports = function migration (options) {
    *
    *  @required audit - the audit to run migration on
    */
-  this.add({role: 'migration', cmd: 'drop'}, function (msg, done) {
+  this.add({role: 'migration', action: 'drop'}, function (msg, done) {
     var audit = msg.audit
 
     db.none(`DELETE FROM ${audit.table_name} WHERE job_id = $1`, audit.job_id)

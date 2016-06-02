@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "bluebird": "^3.4.0",
+    "commander": "^2.9.0",
     "merge": "^1.2.0",
     "pg": "^4.5.5",
     "pg-promise": "^4.3.5",

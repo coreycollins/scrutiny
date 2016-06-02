@@ -1,0 +1,66 @@
+#!/usr/bin/env node
+
+/**
+ * Module dependencies.
+ */
+
+var program = require('commander');
+var seneca = require('seneca')({
+  log: {
+    map: [] // Disable logging by passing no filters
+  }
+})
+
+program
+  .version('0.0.1')
+
+program
+  .command('init <server> <table>')
+  .description('initialize a staging table for scrutiny')
+  .action(function(server, table) {
+
+  })
+
+program
+  .command('destroy <table>')
+  .description('destroy a staging table from scrutiny')
+  .action(function(table) {
+    console.log(table);
+  })
+
+
+program
+  .command('list [type]')
+  .description('list audits in scrutiny')
+  .action(function(type) {
+    type = type || 'all'
+    seneca.client().act('role:audit,cmd:list', function(err, result){
+      if (err) { console.log(err.msg); return }
+
+      console.log(result);
+    })
+  })
+
+
+program
+  .command('submit <id>')
+  .description('submit an audit')
+  .action(function(id) {
+    console.log(id);
+  })
+
+program
+  .command('approve <id>')
+  .description('approve an audit')
+  .action(function(id) {
+    console.log(id);
+  })
+
+program
+  .command('reject <id>')
+  .description('reject an audit')
+  .action(function(id) {
+    console.log(id);
+  })
+
+program.parse(process.argv);
