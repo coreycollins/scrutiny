@@ -19,14 +19,22 @@ program
   .command('init <server> <table>')
   .description('initialize a staging table for scrutiny')
   .action(function(server, table) {
+    seneca.act({role: 'staging', action: 'create', table: table, server_name: server},function(err) {
+      if (err) { console.log(err.msg); return }
 
+      console.log('initialized staging table')
+    })
   })
 
 program
   .command('destroy <table>')
   .description('destroy a staging table from scrutiny')
   .action(function(table) {
-    console.log(table);
+    seneca.act({role: 'staging', action: 'drop', table: table},function(err) {
+      if (err) { console.log(err.msg); return }
+
+      console.log('destroyed staging table')
+    })
   })
 
 
@@ -109,7 +117,7 @@ program
   .action(function(id) {
     seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
       if (err) { console.log(err.msg); return }
-      
+
       seneca.client().act({role:'audit', action:'reject', audit:audit}, function(err, audit){
           if (err) { console.log(err.msg); return }
 
