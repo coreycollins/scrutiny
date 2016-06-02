@@ -79,7 +79,7 @@ module.exports = function audit (options) {
 
     // Build audit
     var audit = {
-      name: options.name || `audit_${msg.job_id}`,
+      name: msg.name || `audit_${msg.job_id}`,
       table_name: msg.table,
       job_id: msg.job_id,
       status: 'loaded' // Set initial status to loaded state

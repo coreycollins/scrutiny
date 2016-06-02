@@ -63,7 +63,7 @@ program
   .description('create an audit')
   .option('-n, --name <name>','the name of the audit')
   .action(function(table, job_id, options) {
-    seneca.act({role:'audit', action:'create', job_id:job_id, table:table}, function(err, audit){
+    seneca.act({role:'audit', action:'create', job_id:job_id, table:table, name:options.name}, function(err, audit){
       if (err) { console.log(err.msg); return }
 
       console.log(`[created audit]\nid: ${audit.id}\nname: ${audit.name}\ntable: ${audit.table_name}`);
