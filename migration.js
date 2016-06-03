@@ -39,6 +39,7 @@ module.exports = function migration (options) {
         done()
       })
       .catch((err) => {
+        console.log(err)
         done(err)
       })
   })
@@ -57,6 +58,7 @@ module.exports = function migration (options) {
         done()
       })
       .catch((err) => {
+        console.log(err)
         done(err)
       })
   })
