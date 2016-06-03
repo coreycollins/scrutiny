@@ -96,6 +96,12 @@ module.exports = function audit (options) {
    */
   this.add({role: 'audit', action: 'submit'}, function (msg, done) {
     var audit = msg.audit
+
+    if (audit.status != 'loaded') {
+      done(new Error('can only submit a loaded audit'))
+      return
+    }
+
     audit.status = 'submitted'
 
     // TODO: notify auditor of audit submittal.
@@ -115,6 +121,11 @@ module.exports = function audit (options) {
    */
   this.add({role: 'audit', action: 'approve'}, function (msg, done) {
     var audit = msg.audit
+
+    if (audit.status != 'submitted') {
+      done('can only submit a loaded audit')
+      return
+    }
 
     act({role: 'migration', action: 'execute', audit: audit})
       .then(() => {
