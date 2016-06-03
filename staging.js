@@ -103,6 +103,7 @@ module.exports = function migration (options) {
         return db.tx((t) => {
           return t.batch([
             t.none(`DROP FOREIGN TABLE IF EXISTS ${foreignTable}`),
+            t.none(`DROP TABLE IF EXISTS ${stagingTable} CASCADE`),
             t.none(createTableStmnt),
             t.none(`DROP SEQUENCE IF EXISTS ${stagingTable}_sequence`),
             t.none(`CREATE SEQUENCE ${stagingTable}_sequence`),
@@ -113,8 +114,8 @@ module.exports = function migration (options) {
       .then(() => {
         return db.tx((t) => {
           return t.batch([
-            t.none(`DROP TABLE IF EXISTS ${stagingTable}`),
             t.none(`CREATE TABLE ${stagingTable} AS (SELECT * FROM (SELECT 'I'::character as op, 1::int as job_id, 1::bigint as table_id) s, (SELECT * FROM ${foreignTable}) f) WITH NO DATA;`),
+            t.none(`ALTER TABLE ${stagingTable} ALTER COLUMN table_id SET DEFAULT nextval('${stagingTable}_sequence')`)
           ])
         })
       })
