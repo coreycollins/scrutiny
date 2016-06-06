@@ -5,6 +5,7 @@
  */
 
 var program = require('commander');
+var prettyjson = require('prettyjson');
 var seneca = require('seneca')({
     log: {
       map: [] // Disable logging by passing no filters
@@ -51,10 +52,22 @@ program
     if(type) { action['status'] = type }
     if(options.schema) { action['schema'] = options.schema }
 
-    seneca.act(action, function(err, result){
+    seneca.act(action, function(err, audits){
       if (err) { console.log(err.msg); return }
+      audits.forEach((audit)=>{
+        console.log('--------------------------');
+        console.log(
+          prettyjson.render({
+            id: audit.id,
+            name: audit.name,
+            status: audit.status,
+            table: audit.table_name.replace(/staging_/,''),
+            staging_table: audit.table_name,
+            foreign_table: audit.table_name.replace(/staging_/,'foreign_')
+          }));
+        console.log('--------------------------\n');
+      })
 
-      console.log(result);
     })
   })
 
@@ -101,10 +114,10 @@ program
   .description('approve an audit')
   .action(function(id) {
     seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
-      if (err) { console.log(err.msg); return }
+      if (err) { console.error(err); return }
 
       seneca.client().act({role:'audit', action:'approve', audit:audit}, function(err, audit){
-          if (err) { console.log(err.msg); return }
+          if (err) { console.error(err.msg); return }
 
           console.log(`${audit.name} approved`);
       })

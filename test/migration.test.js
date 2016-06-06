@@ -17,32 +17,30 @@ test('execute migration', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})
 
-  // TODO: actually create a test table on production
-
-  t.notThrows(
-    act({role: 'staging', action: 'create', table: 'test', server_name: 'prod_db'})
-      .then((result) => {
-        return act({role: 'audit', action: 'create', job_id: 124, table: result.table})
-      })
-      .then((audit) => {
-        return act({role: 'migration', action: 'execute', audit: audit})
-      })
-  )
+  return act({role: 'staging', action: 'create', name: 'stage_test', table: 'test', server_name: 'prod_db'})
+    .then((stage) => {
+      return act({role: 'audit', action: 'create', job_id: 124, stage_id: stage.id})
+    })
+    .then((audit) => {
+      return act({role: 'migration', action: 'execute', audit: audit})
+    })
+    .then(() => {
+      t.pass()
+    })
 })
 
 test('drop migration', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})
 
-  // TODO: actually create a test table on production
-
-  t.notThrows(
-    act({role: 'staging', action: 'create', table: 'test', server_name: 'prod_db'})
-      .then((result) => {
-        return act({role: 'audit', action: 'create', job_id: 124, table: result.table})
-      })
-      .then((audit) => {
-        return act({role: 'migration', action: 'drop', audit: audit})
-      })
-  )
+  return act({role: 'staging', action: 'create', name: 'stage_test', table: 'test', server_name: 'prod_db'})
+    .then((stage) => {
+      return act({role: 'audit', action: 'create', job_id: 124, stage_id: stage.id})
+    })
+    .then((audit) => {
+      return act({role: 'migration', action: 'drop', audit: audit})
+    })
+    .then(() => {
+      t.pass()
+    })
 })

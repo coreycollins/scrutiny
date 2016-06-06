@@ -1,4 +1,5 @@
 var pgp = require('pg-promise')()
+var Promise = require('bluebird')
 
 module.exports = function migration (options) {
   var db
@@ -63,50 +64,96 @@ module.exports = function migration (options) {
   })
 
   /**
+   *  cmd "get" retreives the stage by id or name
+   *
+   *  @required id - id of the  stage.
+   */
+  this.add({role: 'staging', action: 'get'}, function (msg, done) {
+    var stageEntity = this.make('stages', 'stage')
+
+    var load$ = Promise.promisify(stageEntity.load$, {context: stageEntity})
+    var list$ = Promise.promisify(stageEntity.list$, {context: stageEntity})
+
+    load$(msg.id)
+      .then((stage) => {
+        // Try to find stage by name
+        if (!stage) {
+          return list$({name: msg.id})
+        }
+
+        done(err, stage)
+      })
+      .then((stages) => {
+        if (stages.length == 0) {
+          done(new Error('unable to find stage'))
+          return
+        }
+
+        // return first found stage by name
+        done(null, stages[0])
+      })
+      .catch((err) => {
+        done(err)
+      })
+  })
+
+  /**
    *  cmd "create" runs a single transaction againt the staging database
    *  to create a staging table for the audit system.
    *
    *  @required table - the name of the production database
    *  @required server_name - the name of the foreign data wrapper on the staging db
+   *  @required name - the name of the stage
    */
   this.add({role: 'staging', action: 'create'}, function (msg, done) {
-    var targetServer = msg.server_name
-    var targetTable = msg.table
-    var foreignTable = 'foreign_' + targetTable
-    var stagingTable = 'staging_' + targetTable
+    var stageEntity = this.make$('stages', 'stage')
 
-    if (!targetServer) {
+    var stage = {
+      name: msg.name,
+      target_server: msg.server_name,
+      target_table: msg.table,
+      foreign_table: 'foreign_' + msg.table,
+      staging_table: 'staging_' + msg.table,
+      sequence: 'staging_' + msg.table + '_sequence'
+    }
+
+    if (!stage.name) {
+      done(new Error('no stage name provided'))
+      return
+    }
+
+    if (!stage.target_server) {
       done(new Error('no target foreign data wrapper provided'))
       return
     }
 
-    if (!targetTable) {
+    if (!stage.target_table) {
       done(new Error('no target table provided'))
       return
     }
 
-    var columnSelect = `SELECT * FROM dblink('${targetServer}', 'SELECT column_name, column_default, data_type, character_maximum_length, numeric_precision, numeric_scale, datetime_precision
+    var columnSelect = `SELECT * FROM dblink('${stage.target_server}', 'SELECT column_name, column_default, data_type, character_maximum_length, numeric_precision, numeric_scale, datetime_precision
       FROM information_schema.columns
-      WHERE table_schema = ''public'' AND table_name = ''test''') as (column_name text, column_default text, data_type text, character_maximum_length int, numeric_precision int, numeric_scale int, datetime_precision int)
+      WHERE table_schema = ''public'' AND table_name = ''${stage.target_table}''') as (column_name text, column_default text, data_type text, character_maximum_length int, numeric_precision int, numeric_scale int, datetime_precision int)
     `
 
     db.any(columnSelect)
       .then((results) => {
-        var createTableStmnt = _prepareForeginTable(targetServer, targetTable, results)
+        var createTableStmnt = _prepareForeginTable(stage.target_server, stage.target_table, results)
         var primary = results.find(function (col) {
           // The id wont always be the primary key. Need to devise a better way to find
           return col.column_name === 'id'
         })
 
-        var sequenceStmnt = `SELECT setval('${stagingTable}_sequence', (SELECT next FROM dblink('${targetServer}', 'SELECT ${primary.column_default.replace(/'/g, "''")}') as (next int))+1)`
+        var sequenceStmnt = `SELECT setval('${stage.sequence}', (SELECT next FROM dblink('${stage.target_server}', 'SELECT ${primary.column_default.replace(/'/g, "''")}') as (next int))+1)`
 
         return db.tx((t) => {
           return t.batch([
-            t.none(`DROP FOREIGN TABLE IF EXISTS ${foreignTable}`),
-            t.none(`DROP TABLE IF EXISTS ${stagingTable} CASCADE`),
+            t.none(`DROP FOREIGN TABLE IF EXISTS ${stage.foreign_table}`),
+            t.none(`DROP TABLE IF EXISTS ${stage.staging_table} CASCADE`),
             t.none(createTableStmnt),
-            t.none(`DROP SEQUENCE IF EXISTS ${stagingTable}_sequence`),
-            t.none(`CREATE SEQUENCE ${stagingTable}_sequence`),
+            t.none(`DROP SEQUENCE IF EXISTS ${stage.staging_table}_sequence`),
+            t.none(`CREATE SEQUENCE ${stage.staging_table}_sequence`),
             t.one(sequenceStmnt)
           ])
         })
@@ -114,13 +161,16 @@ module.exports = function migration (options) {
       .then(() => {
         return db.tx((t) => {
           return t.batch([
-            t.none(`CREATE TABLE ${stagingTable} AS (SELECT * FROM (SELECT 'I'::character as op, 1::int as job_id, 1::bigint as table_id) s, (SELECT * FROM ${foreignTable}) f) WITH NO DATA;`),
-            t.none(`ALTER TABLE ${stagingTable} ALTER COLUMN table_id SET DEFAULT nextval('${stagingTable}_sequence')`)
+            t.none(`CREATE TABLE ${stage.staging_table} AS (SELECT * FROM (SELECT 'I'::character as op, 1::int as job_id, 1::bigint as table_id) s, (SELECT * FROM ${stage.foreign_table}) f) WITH NO DATA;`),
+            t.none(`ALTER TABLE ${stage.staging_table} ALTER COLUMN table_id SET DEFAULT nextval('${stage.sequence}')`)
           ])
         })
       })
       .then(() => {
-        done(null, {table: stagingTable})
+        // Save audit
+        stageEntity.save$(stage, (err, stage) => {
+          done(err, stage)
+        })
       })
       .catch((err) => {
         console.log(err)
@@ -132,19 +182,19 @@ module.exports = function migration (options) {
    *  cmd "drop" runs a single transaction againt the staging database
    *  to drop all staging objects used in scrutiny
    *
-   *  @required table - the name of the production table
+   *  @required stage - the name of the stage
    */
   this.add({role: 'staging', action: 'drop'}, function (msg, done) {
-    var targetTable = msg.table
-    if (!targetTable) {
-      done(new Error('no target table provided'))
+    var stage = msg.stage
+    if (!stage) {
+      done(new Error('no stage provided'))
       return
     }
 
     db.tx((t) => {
       return t.batch([
-        t.none(`DROP FOREIGN TABLE IF EXISTS foreign_${targetTable}`),
-        t.none(`DROP TABLE IF EXISTS staging_${targetTable} CASCADE`),
+        t.none(`DROP FOREIGN TABLE IF EXISTS ${stage.foreign_table}`),
+        t.none(`DROP TABLE IF EXISTS ${stage.staging_table} CASCADE`),
       ])
     })
       .then(() => {

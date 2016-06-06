@@ -94,10 +94,17 @@ test('create an audit', t => {
   var act = Promise.promisify(seneca.act, {context: seneca})
   t.plan(2)
 
-  return act({role: 'audit', action: 'create', job_id: 1234, table: 'staging_table'})
-    .then((result) => {
-      t.is(result.name, 'audit_1234')
-      t.is(result.table_name, 'staging_table')
+  return act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'})
+    .then((stage) => {
+      return act({role: 'audit', action: 'create', job_id: 1234, stage_id: stage.id})
+    })
+    .then((audit) => {
+      t.is(audit.name, 'audit_1234')
+      t.is(audit.job_id, 1234)
+      t.is(audit.inserts, 0)
+      t.is(audit.updates, 0)
+      t.is(audit.deletes, 0)
+      t.is(audit.final, 0)
     })
 })
 
@@ -105,14 +112,15 @@ test('submit an audit', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})
 
-  var audit = seneca.make('audits', 'audit', {name: 'Test', job_id: 1234, status: 'loaded'})
-
-  return Promise.promisify(audit.save$, {context: audit})()
+  return act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'})
+    .then((stage) => {
+      return act({role: 'audit', action: 'create', job_id: 1234, stage_id: stage.id})
+    })
     .then((audit) => {
       return act({role: 'audit', action: 'submit', audit: audit})
     })
     .then((result) => {
-      t.is(result.name, 'Test')
+      t.is(result.name, 'audit_1234')
       t.is(result.status, 'submitted')
     })
 })
@@ -123,24 +131,25 @@ test('only submit a loaded audit', t => {
 
   var audit = seneca.make('audits', 'audit', {name: 'Test', job_id: 1234, status: 'rejected'})
 
-  t.throws(Promise.promisify(audit.save$, {context: audit})()
-    .then((audit) => {
-      return act({role: 'audit', action: 'submit', audit: audit})
-    }))
+  t.throws(act({role: 'audit', action: 'submit', audit: audit}))
 })
 
 test('approve an audit', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})
 
-  var audit = seneca.make('audits', 'audit', {name: 'Test', job_id: 1234, table_name: 'staging_test', status: 'submitted'})
-
-  return act({role: 'staging', action: 'create', table: 'test', server_name: 'prod_db'})
-    .then((result) => {
+  return act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'})
+    .then((stage) => {
+      return act({role: 'audit', action: 'create', job_id: 1234, stage_id: stage.id})
+    })
+    .then((audit) => {
+      return act({role: 'audit', action: 'submit', audit: audit})
+    })
+    .then((audit) => {
       return act({role: 'audit', action: 'approve', audit: audit})
     })
     .then((result) => {
-      t.is(result.name, 'Test')
+      t.is(result.name, 'audit_1234')
       t.is(result.status, 'approved')
     })
 })
@@ -158,14 +167,15 @@ test('reject an audit', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})
 
-  var audit = seneca.make('audits', 'audit', {name: 'Test', job_id: 1234, table_name: 'staging_test'})
-
-  return act({role: 'staging', action: 'create', table: 'test', server_name: 'prod_db'})
-    .then((result) => {
+  return act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'})
+    .then((stage) => {
+      return act({role: 'audit', action: 'create', job_id: 1234, stage_id: stage.id})
+    })
+    .then((audit) => {
       return act({role: 'audit', action: 'reject', audit: audit})
     })
     .then((result) => {
-      t.is(result.name, 'Test')
+      t.is(result.name, 'audit_1234')
       t.is(result.status, 'rejected')
     })
 })

@@ -24,24 +24,45 @@ module.exports = function migration (options) {
    */
   this.add({role: 'migration', action: 'execute'}, function (msg, done) {
     var audit = msg.audit
-    var foreignTable = audit.table_name.replace(/staging_/, 'foreign_')
-    var sequence = `${audit.table_name}_sequence`
 
-    db.tx(function (t) {
-      return t.batch([
-        t.none(`UPDATE ${audit.table_name} SET table_id = nextval('${sequence}') WHERE op = $1 AND job_id = $2`, ['I', audit.job_id]),
-        t.none(`INSERT INTO ${foreignTable} (id, field1) (SELECT table_id, field1 FROM ${audit.table_name} WHERE op = $1 AND job_id = $2)`, ['I', audit.job_id]),
-        t.none(`UPDATE ${foreignTable} t SET field1 = s.field1 FROM ${audit.table_name} s WHERE s.op = $1 AND t.id = s.table_id AND job_id = $2`, ['U', audit.job_id]),
-        t.none(`DELETE FROM ${foreignTable} WHERE id IN (SELECT table_id FROM ${audit.table_name} WHERE op = $1 AND job_id = $2)`, ['D', audit.job_id]),
-      ])
+    this.make('stages', 'stage').load$(audit.stage_id, (err, stage) => {
+
+      if (err) { done(err); return }
+
+      console.log(stage)
+
+      var columnSelect = `SELECT array_to_string(array_agg(column_name::text),',') FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = '${stage.foreign_table}' AND column_name != 'id'`
+
+      db.one(columnSelect)
+        .then((result) => {
+          return db.tx(function (t) {
+            var cols = result.array_to_string
+            var updateFields = []
+            cols.split(',').forEach((col) => {
+              updateFields.push(`${col} = s.${col}`)
+            })
+
+            return t.batch([
+              // t.none(`UPDATE ${audit.table_name} SET table_id = nextval('${sequence}') WHERE op = $1 AND job_id = $2`, ['I', audit.job_id]),
+              t.none(`INSERT INTO ${stage.foreign_table} (id, ${cols}) (SELECT table_id, ${cols} FROM ${stage.staging_table} WHERE op = $1 AND job_id = $2)`, ['I', audit.job_id]),
+              t.none(`UPDATE ${stage.foreign_table} t SET ${updateFields.join(',')} FROM ${stage.staging_table} s WHERE s.op = $1 AND t.id = s.table_id AND job_id = $2`, ['U', audit.job_id]),
+              t.none(`DELETE FROM ${stage.foreign_table} WHERE id IN (SELECT table_id FROM ${stage.staging_table} WHERE op = 'D' AND job_id = $1)`, audit.job_id),
+            ])
+          })
+        })
+        .then((result) => {
+          // id audit succeeds, delete all job rows from the staging table
+          return db.none(`DELETE FROM ${stage.staging_table} WHERE job_id = $1`, audit.job_id)
+        })
+        .then(() => {
+          done()
+        })
+        .catch((err) => {
+          console.log(err)
+          done(err)
+        })
     })
-      .then((result) => {
-        done()
-      })
-      .catch((err) => {
-        console.log(err)
-        done(err)
-      })
   })
 
   /**
@@ -53,13 +74,18 @@ module.exports = function migration (options) {
   this.add({role: 'migration', action: 'drop'}, function (msg, done) {
     var audit = msg.audit
 
-    db.none(`DELETE FROM ${audit.table_name} WHERE job_id = $1`, audit.job_id)
-      .then((result) => {
-        done()
-      })
-      .catch((err) => {
-        console.log(err)
-        done(err)
-      })
+    this.make('stages', 'stage').load$(audit.stage_id, (err, stage) => {
+
+      if (err) { done(err); return }
+
+      db.none(`DELETE FROM ${stage.staging_table} WHERE job_id = $1`, audit.job_id)
+        .then((result) => {
+          done()
+        })
+        .catch((err) => {
+          console.log(err)
+          done(err)
+        })
+    })
   })
 }

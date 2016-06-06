@@ -58,7 +58,7 @@ module.exports = function audit (options) {
    *  cmd "create" creates an audit.
    *
    *  @required job_id - job id of the new audit. Should exist in table.
-   *  @required table - Name of staging table in staging database
+   *  @required stage_id - stage id of staging metadata
 
    *  @options - {
    *    name: "Name of the audit",
@@ -68,24 +68,24 @@ module.exports = function audit (options) {
   this.add({role: 'audit', action: 'create'}, function (msg, done) {
     var options = msg.options || {}
 
+    var auditEntity = this.make('audits', 'audit')
+
     // Must pass a job id
     if (!msg.job_id) {done(new Error('no job id provided'))}
 
-    // Must pass a staging table name
-    if (!msg.table) {done(new Error('no staging table provided'))}
-
-    // TODO: search for job_id in staging table.
-    //       throw error if doesn't exist
+    // Must pass a table name
+    if (!msg.stage_id) {done(new Error('no target stage provided'))}
 
     // Build audit
     var audit = {
       name: msg.name || `audit_${msg.job_id}`,
-      table_name: msg.table,
+      stage_id: msg.stage_id,
       job_id: msg.job_id,
       status: 'loaded' // Set initial status to loaded state
     }
 
-    this.make('audits', 'audit').save$(audit, (err, audit) => {
+    // Save audit
+    auditEntity.save$(audit, (err, audit) => {
       done(err, audit)
     })
   })
@@ -123,7 +123,7 @@ module.exports = function audit (options) {
     var audit = msg.audit
 
     if (audit.status != 'submitted') {
-      done('can only submit a loaded audit')
+      done(new Error('can only approve a submitted audit'))
       return
     }
 
