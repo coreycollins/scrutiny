@@ -95,7 +95,7 @@ module.exports = function migration (options) {
   this.add({role: 'migration', action: 'analyze'}, function (msg, done) {
     var audit = msg.audit
 
-    var results = {}
+    var results = {inserts: 0,updates: 0,deletes: 0}
     this.make('stages', 'stage').load$(audit.stage_id, (err, stage) => {
 
       db.any(`SELECT s.op, count(*) FROM ${stage.staging_table} s WHERE job_id = $1 GROUP BY op ORDER BY op`, audit.job_id)
