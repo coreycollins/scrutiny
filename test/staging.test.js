@@ -11,6 +11,45 @@ test.beforeEach(t => {
     .use('../staging.js')
 })
 
+test('get a stage by id', t => {
+  var seneca = t.context.seneca
+  var act = Promise.promisify(seneca.act, {context: seneca})
+
+  return act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'})
+    .then((stage) => {
+      return act({role: 'staging', action: 'get', id: stage.id})
+    })
+    .then((stage) => {
+      t.is(stage.name, 'test_stage')
+    })
+})
+
+test('get a stage by name', t => {
+  var seneca = t.context.seneca
+  var act = Promise.promisify(seneca.act, {context: seneca})
+
+  return act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'})
+    .then((stage) => {
+      return act({role: 'staging', action: 'get', id: stage.name})
+    })
+    .then((stage) => {
+      t.is(stage.name, 'test_stage')
+    })
+})
+
+test('throw error on no stage', t => {
+  var seneca = t.context.seneca
+  var act = Promise.promisify(seneca.act, {context: seneca})
+
+  t.throws(act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'})
+    .then((stage) => {
+      return act({role: 'staging', action: 'get', id: 'doesnt exist'})
+    })
+    .then((stage) => {
+      t.is(stage.name, 'test_stage')
+    }), /seneca: Action action:get,role:staging failed: unable to find stage./)
+})
+
 test('create a staging table', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})

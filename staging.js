@@ -81,7 +81,7 @@ module.exports = function migration (options) {
           return list$({name: msg.id})
         }
 
-        done(err, stage)
+        done(null, stage)
       })
       .then((stages) => {
         if (stages.length == 0) {
