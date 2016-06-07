@@ -29,8 +29,6 @@ module.exports = function migration (options) {
 
       if (err) { done(err); return }
 
-      console.log(stage)
-
       var columnSelect = `SELECT array_to_string(array_agg(column_name::text),',') FROM information_schema.columns
         WHERE table_schema = 'public' AND table_name = '${stage.foreign_table}' AND column_name != 'id'`
 
@@ -86,6 +84,64 @@ module.exports = function migration (options) {
           console.log(err)
           done(err)
         })
+    })
+  })
+
+  /**
+   *  cmd "analyze" runs aggregations against the staging table
+   *
+   *  @required audit
+   */
+  this.add({role: 'migration', action: 'analyze'}, function (msg, done) {
+    var audit = msg.audit
+
+    var results = {}
+    this.make('stages', 'stage').load$(audit.stage_id, (err, stage) => {
+
+      db.any(`SELECT s.op, count(*) FROM ${stage.staging_table} s WHERE job_id = $1 GROUP BY op ORDER BY op`, audit.job_id)
+        .then((groups) => {
+          groups.forEach((row) => {
+            switch (row.op) {
+              case 'I':
+                results.inserts = parseInt(row.count)
+                break
+              case 'U':
+                results.updates = parseInt(row.count)
+                break
+              case 'D':
+                results.deletes = parseInt(row.count)
+                break
+              default:
+            }
+          })
+
+          return db.one(`SELECT count(*) FROM ${stage.foreign_table}`)
+        })
+        .then((row) => {
+          var count = parseInt(row.count)
+
+          results.beforeCommit = count
+          results.afterCommit = count + results.inserts - results.deletes
+          done(null, results)
+        })
+        .catch((err) => {
+          done(err)
+        })
+    })
+  })
+
+  /**
+   *  cmd "preview" returns a small set of sample records from a merge of the staging
+   *  table with it's target.
+   *
+   *  @required audit
+   */
+  this.add({role: 'migration', action: 'preview'}, function (msg, done) {
+    var audit = msg.audit
+
+    var results = {}
+    this.make('stages', 'stage').load$(audit.stage_id, (err, stage) => {
+      done(new Error('not implemented'))
     })
   })
 }

@@ -1,5 +1,14 @@
 var test = require('ava')
 var Promise = require('bluebird')
+var pgp = require('pg-promise')()
+
+var db = pgp({
+  host: 'localhost', // server name or IP address
+  port: 5432,
+  database: 'postgres',
+  user: 'postgres',
+  password: 'test'
+})
 
 test.beforeEach(t => {
   t.context.seneca = require('seneca')({
@@ -11,6 +20,8 @@ test.beforeEach(t => {
     .use('../audit.js')
     .use('../migration.js')
     .use('../staging.js')
+
+  return
 })
 
 test('retrieve audits list', t => {
@@ -92,7 +103,7 @@ test('get audit by missing job id', t => {
 test('create an audit', t => {
   var seneca = t.context.seneca
   var act = Promise.promisify(seneca.act, {context: seneca})
-  t.plan(2)
+  t.plan(3)
 
   return act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'})
     .then((stage) => {
@@ -101,10 +112,39 @@ test('create an audit', t => {
     .then((audit) => {
       t.is(audit.name, 'audit_1234')
       t.is(audit.job_id, 1234)
-      t.is(audit.inserts, 0)
-      t.is(audit.updates, 0)
-      t.is(audit.deletes, 0)
-      t.is(audit.final, 0)
+      t.not(audit.stage_id, null)
+    })
+})
+
+test('analyze an audit', t => {
+  var seneca = t.context.seneca
+  var act = Promise.promisify(seneca.act, {context: seneca})
+  t.plan(5)
+
+  var stage
+  return act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'})
+    .then((result) => {
+      stage = result
+      return db.tx(function (t) {
+        return t.batch([
+          db.none(`INSERT INTO "public"."staging_test"("op", "job_id", "field1") VALUES('I', 1234, 'Bar')`),
+          db.none(`INSERT INTO "public"."staging_test"("op", "job_id", "field1") VALUES('U', 1234, 'Bar')`),
+          db.none(`INSERT INTO "public"."staging_test"("op", "job_id", "field1") VALUES('D', 1234, 'Bar')`)
+        ])
+      })
+    })
+    .then(() => {
+      return act({role: 'audit', action: 'create', job_id: 1234, stage_id: stage.id})
+    })
+    .then((audit) => {
+      return act({role: 'audit', action: 'analyze', audit: audit})
+    })
+    .then((results) => {
+      t.is(results.inserts, 1)
+      t.is(results.updates, 1)
+      t.is(results.deletes, 1)
+      t.is(results.beforeCommit, 2) // TODO: should actually be 0
+      t.is(results.afterCommit, 2) // TODO: should actually be 0
     })
 })
 

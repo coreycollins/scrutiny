@@ -91,6 +91,23 @@ module.exports = function audit (options) {
   })
 
   /**
+   *  cmd "analyze" runs aggregations against the staging table
+   *
+   *  @required audit
+   */
+  this.add({role: 'audit', action: 'analyze'}, function (msg, done) {
+    var audit = msg.audit
+    act({role: 'migration', action: 'analyze', audit: audit})
+      .then((results) => {
+        done(null, results)
+      })
+      // TODO: catch specific error
+      .catch((err) => {
+        done(err)
+      })
+  })
+
+  /**
    *  cmd "submit" sets the audit status to 'submitted' to prepare the
    *  audit for QA by the auditor.
    */
