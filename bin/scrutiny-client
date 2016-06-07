@@ -19,22 +19,38 @@ program
 program
   .command('init <server> <table>')
   .description('initialize a staging table for scrutiny')
-  .action(function(server, table) {
-    seneca.act({role: 'staging', action: 'create', table: table, server_name: server},function(err) {
+  .option('-n, --name <stage_name>','the name of the stage')
+  .action(function(server, table, options) {
+    var name = options.stage_name || table
+    seneca.act({role: 'staging', action: 'create', table: table, server_name: server, name:name},function(err, stage) {
       if (err) { console.log(err.msg); return }
-
-      console.log('initialized staging table')
+      console.log('-----------------------------');
+      console.log('+ initialized staging table +')
+      console.log('-----------------------------');
+      console.log(
+        prettyjson.render({
+          id: stage.id,
+          name: stage.name,
+          table: stage.table,
+          staging_table: stage.staging_table,
+          foreign_table: stage.foreign_table
+        }));
+      console.log('----------------------------');
     })
   })
 
 program
-  .command('destroy <table>')
-  .description('destroy a staging table from scrutiny')
-  .action(function(table) {
-    seneca.act({role: 'staging', action: 'drop', table: table},function(err) {
-      if (err) { console.log(err.msg); return }
-
-      console.log('destroyed staging table')
+  .command('destroy <stage_id>')
+  .description('destroy a stage from scrutiny')
+  .action(function(stage_id) {
+    seneca.act({role:'staging', action:'get', id:stage_id}, function(err, stage){
+      if (err) { console.error(err); return }
+      seneca.act({role: 'staging', action: 'drop', stage: stage},function(err) {
+        if (err) { console.log(err.msg); return }
+        console.log('----------------------------------');
+        console.log('+ destroyed staging environment +')
+        console.log('----------------------------------');
+      })
     })
   })
 
@@ -61,9 +77,6 @@ program
             id: audit.id,
             name: audit.name,
             status: audit.status,
-            table: audit.table_name.replace(/staging_/,''),
-            staging_table: audit.table_name,
-            foreign_table: audit.table_name.replace(/staging_/,'foreign_')
           }));
         console.log('--------------------------\n');
       })
@@ -72,14 +85,34 @@ program
   })
 
 program
-  .command('create <table> <job_id>')
+  .command('create <stage> <job_id>')
   .description('create an audit')
-  .option('-n, --name <name>','the name of the audit')
-  .action(function(table, job_id, options) {
-    seneca.act({role:'audit', action:'create', job_id:job_id, table:table, name:options.name}, function(err, audit){
-      if (err) { console.log(err.msg); return }
+  .option('-n, --name <audit_name>','the name of the audit')
+  .action(function(stage, job_id, options) {
+    seneca.act({role:'staging', action:'get', id:stage}, function(err, stage){
+      if (err) { console.error(err); return }
 
-      console.log(`[created audit]\nid: ${audit.id}\nname: ${audit.name}\ntable: ${audit.table_name}`);
+      seneca.act({role:'audit', action:'create', job_id:job_id, stage_id:stage.id, name:options.audit_name}, function(err, audit){
+        if (err) { console.log(err.msg); return }
+
+        seneca.act({role:'audit', action:'analyze', audit:audit}, function(err, results){
+          if (err) { console.log(err.msg); return }
+
+          console.log('-----------------');
+          console.log(`+ created audit +`)
+          console.log('-----------------');
+          console.log(prettyjson.render({
+            status: audit.status,
+            inserts: results.inserts,
+            updates: results.updates,
+            deletes: results.deletes,
+            beforeCommit: results.beforeCommit,
+            afterCommit: results.afterCommit
+          }));
+          console.log('-----------------');
+        })
+
+      })
     })
   })
 
@@ -90,7 +123,13 @@ program
       seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
         if (err) { console.log(err.msg); return }
 
-        console.log(`${audit.name} ${audit.status}`);
+        console.log('-----------------');
+        console.log(`+ ${audit.name} +`)
+        console.log('-----------------');
+        console.log(prettyjson.render({
+          status: audit.status
+        }));
+        console.log('-----------------');
       })
     })
 
@@ -101,10 +140,15 @@ program
     seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
       if (err) { console.log(err.msg); return }
 
-      seneca.client().act({role:'audit', action:'submit', audit:audit}, function(err, audit){
+      seneca.act({role:'audit', action:'submit', audit:audit}, function(err, audit){
           if (err) { console.log(err.msg); return }
-
-          console.log(`${audit.name} submitted`);
+          console.log('-----------------');
+          console.log(`+ ${audit.name} +`)
+          console.log('-----------------');
+          console.log(prettyjson.render({
+            status: audit.status
+          }));
+          console.log('-----------------');
       })
     })
   })
@@ -113,13 +157,18 @@ program
   .command('approve <id>')
   .description('approve an audit')
   .action(function(id) {
-    seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
+    seneca.client().act({role:'audit', action:'get', id:id}, function(err, audit){
       if (err) { console.error(err); return }
 
       seneca.client().act({role:'audit', action:'approve', audit:audit}, function(err, audit){
           if (err) { console.error(err.msg); return }
-
-          console.log(`${audit.name} approved`);
+          console.log('-----------------');
+          console.log(`+ ${audit.name} +`)
+          console.log('-----------------');
+          console.log(prettyjson.render({
+            status: audit.status
+          }));
+          console.log('-----------------');
       })
     })
   })
@@ -128,13 +177,18 @@ program
   .command('reject <id>')
   .description('reject an audit')
   .action(function(id) {
-    seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
+    seneca.client().act({role:'audit', action:'get', id:id}, function(err, audit){
       if (err) { console.log(err.msg); return }
 
       seneca.client().act({role:'audit', action:'reject', audit:audit}, function(err, audit){
           if (err) { console.log(err.msg); return }
-
-          console.log(`${audit.name} rejected`);
+          console.log('-----------------');
+          console.log(`+ ${audit.name} +`)
+          console.log('-----------------');
+          console.log(prettyjson.render({
+            status: audit.status
+          }));
+          console.log('-----------------');
       })
     })
   })
