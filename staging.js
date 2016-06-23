@@ -1,7 +1,7 @@
 var pgp = require('pg-promise')()
 var Promise = require('bluebird')
 
-module.exports = function migration (options) {
+module.exports = function staging (options) {
   var db
 
   function _getDataType (col) {
@@ -50,8 +50,8 @@ module.exports = function migration (options) {
     return statement
   }
 
-  this.add('init:migration', function (msg, done) {
-    var options = this.options().migration
+  this.add('init:staging', function (msg, done) {
+    var options = this.options().staging
     var staging = options.staging || {
       host: 'localhost', // server name or IP address
       port: 5432,
@@ -69,32 +69,26 @@ module.exports = function migration (options) {
    *  @required id - id of the  stage.
    */
   this.add({role: 'staging', action: 'get'}, function (msg, done) {
-    var stageEntity = this.make('stages', 'stage')
+    var stageEntity = this.make$('stages')
 
-    var load$ = Promise.promisify(stageEntity.load$, {context: stageEntity})
-    var list$ = Promise.promisify(stageEntity.list$, {context: stageEntity})
+    stageEntity.load$(msg.id, (err, stage) => {
+      // Try to find stage by name
+      if (!stage) {
+        stageEntity.list$({name: msg.id}, (err, stages) => {
+          if (err) { done(err); return }
 
-    load$(msg.id)
-      .then((stage) => {
-        // Try to find stage by name
-        if (!stage) {
-          return list$({name: msg.id})
-        }
+          if (!stages || stages.length == 0) {
+            done(new Error('unable to find stage'))
+            return
+          }
 
+          // return first found stage by name
+          done(null, stages[0])
+        })
+      } else {
         done(null, stage)
-      })
-      .then((stages) => {
-        if (stages.length == 0) {
-          done(new Error('unable to find stage'))
-          return
-        }
-
-        // return first found stage by name
-        done(null, stages[0])
-      })
-      .catch((err) => {
-        done(err)
-      })
+      }
+    })
   })
 
   /**
@@ -106,7 +100,7 @@ module.exports = function migration (options) {
    *  @required name - the name of the stage
    */
   this.add({role: 'staging', action: 'create'}, function (msg, done) {
-    var stageEntity = this.make$('stages', 'stage')
+    var stageEntity = this.make$('stages')
 
     var stage = {
       name: msg.name,

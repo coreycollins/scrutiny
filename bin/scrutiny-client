@@ -54,6 +54,18 @@ program
     })
   })
 
+  program
+    .command('clear')
+    .description('delete all audits')
+    .action(function() {
+      seneca.act({role:'audit', action:'clear'}, function(err){
+        if (err) { console.error(err); return }
+          console.log('----------------------------------');
+          console.log('+       deleted all audits       +')
+          console.log('----------------------------------');
+      })
+    })
+
 
 program
   .command('list [type]')
@@ -65,7 +77,12 @@ program
       action: 'list'
     }
 
-    if(type) { action['status'] = type }
+    if(type) {
+      action['status'] = type
+    }
+    else {
+      action['open'] = true
+    }
     if(options.schema) { action['schema'] = options.schema }
 
     seneca.act(action, function(err, audits){
@@ -102,12 +119,16 @@ program
           console.log(`+ created audit +`)
           console.log('-----------------');
           console.log(prettyjson.render({
+            id: audit.id,
+            name: audit.name,
+            created_at: audit.created_at,
             status: audit.status,
             inserts: results.inserts,
             updates: results.updates,
             deletes: results.deletes,
             beforeCommit: results.beforeCommit,
-            afterCommit: results.afterCommit
+            afterCommit: results.afterCommit,
+            stage: audit.stage
           }));
           console.log('-----------------');
         })
@@ -137,10 +158,7 @@ program
   .command('submit <id>')
   .description('submit an audit')
   .action(function(id) {
-    seneca.act({role:'audit', action:'get', id:id}, function(err, audit){
-      if (err) { console.log(err.msg); return }
-
-      seneca.act({role:'audit', action:'submit', audit:audit}, function(err, audit){
+      seneca.act({role:'audit', action:'submit', id:id}, function(err, audit){
           if (err) { console.log(err.msg); return }
           console.log('-----------------');
           console.log(`+ ${audit.name} +`)
@@ -150,17 +168,13 @@ program
           }));
           console.log('-----------------');
       })
-    })
   })
 
 program
   .command('approve <id>')
   .description('approve an audit')
   .action(function(id) {
-    seneca.client().act({role:'audit', action:'get', id:id}, function(err, audit){
-      if (err) { console.error(err); return }
-
-      seneca.client().act({role:'audit', action:'approve', audit:audit}, function(err, audit){
+      seneca.client().act({role:'audit', action:'approve', id:id}, function(err, audit){
           if (err) { console.error(err.msg); return }
           console.log('-----------------');
           console.log(`+ ${audit.name} +`)
@@ -170,17 +184,13 @@ program
           }));
           console.log('-----------------');
       })
-    })
   })
 
 program
   .command('reject <id>')
   .description('reject an audit')
   .action(function(id) {
-    seneca.client().act({role:'audit', action:'get', id:id}, function(err, audit){
-      if (err) { console.log(err.msg); return }
-
-      seneca.client().act({role:'audit', action:'reject', audit:audit}, function(err, audit){
+      seneca.client().act({role:'audit', action:'reject', id:id}, function(err, audit){
           if (err) { console.log(err.msg); return }
           console.log('-----------------');
           console.log(`+ ${audit.name} +`)
@@ -190,7 +200,6 @@ program
           }));
           console.log('-----------------');
       })
-    })
   })
 
 program.parse(process.argv);

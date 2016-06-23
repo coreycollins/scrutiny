@@ -14,11 +14,15 @@
   "dependencies": {
     "bluebird": "^3.4.0",
     "commander": "^2.9.0",
+    "jugglingdb": "^2.0.0-rc4",
+    "jugglingdb-mongodb": "^0.1.1",
     "merge": "^1.2.0",
     "pg": "^4.5.5",
     "pg-promise": "^4.3.5",
     "prettyjson": "^1.1.3",
+    "request-promise": "^3.0.0",
     "seneca": "^2.1.0",
-    "seneca-entity": "^0.1.1"
+    "seneca-entity": "^0.1.1",
+    "seneca-mongo-store": "^0.2.0"
   }
 }
