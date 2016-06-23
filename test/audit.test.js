@@ -200,6 +200,7 @@ test('analyze an audit', t => {
   t.plan(5)
 
   var stage
+  var beforeCommit
   return act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'})
     .then((result) => {
       stage = result
@@ -212,6 +213,12 @@ test('analyze an audit', t => {
       })
     })
     .then(() => {
+      return db.one('SELECT COUNT(*) FROM foreign_test')
+    })
+    .then((before) => {
+      beforeCommit = parseInt(before.count)
+    })
+    .then(() => {
       return act({role: 'audit', action: 'create', job_id: 1234, stage_id: stage.id})
     })
     .then((audit) => {
@@ -221,8 +228,8 @@ test('analyze an audit', t => {
       t.is(results.inserts, 1)
       t.is(results.updates, 1)
       t.is(results.deletes, 1)
-      t.is(results.beforeCommit, 3) // TODO: should actually be 0
-      t.is(results.afterCommit, 3) // TODO: should actually be 0
+      t.is(results.beforeCommit, beforeCommit)
+      t.is(results.afterCommit, beforeCommit)
     })
 })
 
