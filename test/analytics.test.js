@@ -56,7 +56,7 @@ test('analyze an audit', t => {
       return act({role: 'audit', action: 'create', job_id: 1234, stage_id: stage.id})
     })
     .then((audit) => {
-      return act({role: 'analytics', action: 'count', audit: audit})
+      return act({role: 'analytics', action: 'counts', audit: audit})
     })
     .then((results) => {
       t.is(results.inserts, 1)

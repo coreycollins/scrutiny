@@ -13,12 +13,13 @@ var settings = (process.env.NODE_ENV == 'production') ? config.production : conf
 
 // Set verbosity
 var logging
-if (program.verbose) { logging = { map: [level: 'info'] }}
+if (program.verbose) { logging = { map: [{level: 'info'}] }}
 
 // spin up seneca stack
 seneca({ log: logging})
   .use('entity') // ORM management
   .use('mongo-store', settings.mongo) // persistence storage
   .use('audit', settings)
+  .use('analytics', settings)
   .use('staging', settings)
   .listen()

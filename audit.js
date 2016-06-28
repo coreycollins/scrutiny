@@ -5,6 +5,7 @@ var rp = require('request-promise')
 module.exports = function audit (options) {
   var hipchat
   var migrationQ
+  var _this
 
   function _addAuditToHipchat (audit) {
     var options = {
@@ -16,8 +17,8 @@ module.exports = function audit (options) {
     return rp(options)
   }
 
-  function _upsert (context, audit) {
-    var auditEntity = context.make('audits')
+  function _upsert (audit) {
+    var auditEntity = _this.make('audits')
     return Promise.promisify(auditEntity.load$, {context: auditEntity})(audit.id)
       .then((oldAudit) => {
         var newAudit = merge(oldAudit, audit)
@@ -30,11 +31,45 @@ module.exports = function audit (options) {
 
   // initialize hipchat
   this.add('init:audit', function (msg, done) {
+    // Set the context
+    _this = this
+
     var options = this.options().audit
     hipchat = options.hipchat
 
     // initialize background queues
     migrationQ = require('./queues/migration.js')(options)
+
+    // Execution callbacks
+    migrationQ.execute.on('completed', function (job, result) {
+      var audit = job.data.audit
+      audit.status = 'approved'
+      _upsert(audit)
+        .then((audit) => {
+          _addAuditToHipchat(audit)
+          console.log('Audit Migrated!')
+        })
+    })
+    migrationQ.execute.on('failed', function (job, err) {
+      var audit = job.data.audit
+      audit.status = 'failed'
+      _upsert(audit)
+        .then((audit) => {
+          _addAuditToHipchat(audit)
+          console.log('Audit Migration failed!')
+        })
+    })
+
+    migrationQ.drop.on('failed', function (job, err) {
+      var audit = job.data.audit
+      audit.status = 'failed'
+      _upsert(audit)
+        .then((audit) => {
+          _addAuditToHipchat(audit)
+          console.log('Audit drop failed!')
+        })
+    })
+
     done()
   })
 
@@ -138,9 +173,6 @@ module.exports = function audit (options) {
       .then((audit) => {
         if (hipchat) {
           _addAuditToHipchat(audit)
-            .then(() => {
-              done(null, audit)
-            })
         }
         done(null, audit)
       })
@@ -210,7 +242,7 @@ module.exports = function audit (options) {
 
       // TODO: notify auditor of audit submittal.
 
-      _upsert(this, audit)
+      _upsert(audit)
         .then((audit) => {
           done(null, audit)
         })
@@ -239,7 +271,7 @@ module.exports = function audit (options) {
         .then(() => {
           // Update audit
           audit.status = 'migrating'
-          return _upsert(this, audit)
+          return _upsert(audit)
         })
         .then((audit) => {
           done(null, audit)
@@ -267,7 +299,7 @@ module.exports = function audit (options) {
         .then(() => {
           // Update audit
           audit.status = 'rejected'
-          return _upsert(this, audit)
+          return _upsert(audit)
         })
         .then((audit) => {
           done(null, audit)

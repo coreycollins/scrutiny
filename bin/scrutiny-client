@@ -112,7 +112,7 @@ program
       seneca.act({role:'audit', action:'create', job_id:job_id, stage_id:stage.id, name:options.audit_name}, function(err, audit){
         if (err) { console.log(err.msg); return }
 
-        seneca.act({role:'audit', action:'analyze', audit:audit}, function(err, results){
+        seneca.act({role:'analytics', action:'counts', audit:audit}, function(err, results){
           if (err) { console.log(err.msg); return }
 
           console.log('-----------------');

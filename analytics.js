@@ -14,7 +14,7 @@ module.exports = function analytics (options) {
    *
    *  @required audit
    */
-  this.add({role: 'analytics', action: 'count'}, function (msg, done) {
+  this.add({role: 'analytics', action: 'counts'}, function (msg, done) {
     var audit = msg.audit
 
     var results = {inserts: 0,updates: 0,deletes: 0}
