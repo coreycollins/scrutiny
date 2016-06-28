@@ -30,7 +30,6 @@ module.exports = function audit (options) {
 
   // initialize hipchat
   this.add('init:audit', function (msg, done) {
-    console.log('initialized audit micro plugin')
     var options = this.options().audit
     hipchat = options.hipchat
 
