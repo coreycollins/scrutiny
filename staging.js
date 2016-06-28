@@ -52,14 +52,7 @@ module.exports = function staging (options) {
 
   this.add('init:staging', function (msg, done) {
     var options = this.options().staging
-    var staging = options.staging || {
-      host: 'localhost', // server name or IP address
-      port: 5432,
-      database: 'postgres',
-      user: 'postgres',
-      password: 'test'
-    }
-    db = pgp(staging)
+    db = pgp(options.db)
     done()
   })
 

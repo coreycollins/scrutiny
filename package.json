@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "bluebird": "^3.4.0",
+    "bull": "^1.0.0",
     "commander": "^2.9.0",
     "jugglingdb": "^2.0.0-rc4",
     "jugglingdb-mongodb": "^0.1.1",

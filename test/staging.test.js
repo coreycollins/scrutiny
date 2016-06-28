@@ -1,24 +1,24 @@
 var test = require('ava')
 var Promise = require('bluebird')
 
+var settings = require('../config.js').testing
+
+// set a different redis database for parallel testing
+settings.redis.database = 13
+
 var seneca = require('seneca')({
   log: {
     map: [] // Disable logging by passing no filters
   }
 })
   .use('entity')
-  .use('mongo-store', {
-    name: 'scrutiny_testing',
-    host: '127.0.0.1',
-    port: 27017
-  })
-  .use('../audit.js')
-  .use('../migration.js')
-  .use('../staging.js')
+  .use('mongo-store', settings.mongo)
+  .use('../audit.js', settings)
+  .use('../staging.js', settings)
 
 test.cb.beforeEach(t => {
-  var audit = seneca.make('audits', {})
-  audit.native$(function (err, db) {
+  var stage = seneca.make('stages', {})
+  stage.native$(function (err, db) {
     db.dropDatabase(function (err, res) {
       t.end()
     })

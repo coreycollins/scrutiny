@@ -11,17 +11,14 @@ program.parse(process.argv)
 
 var settings = (process.env.NODE_ENV == 'production') ? config.production : config.development
 
+// Set verbosity
 var logging
-if (program.verbose) { logging = {level: 'info' }}
+if (program.verbose) { logging = { map: [level: 'info'] }}
 
-seneca({
-  log: {
-    map: [logging] // Disable logging by passing no filters
-  }
-})
-  .use('entity')
-  .use('mongo-store', settings.mongo)
+// spin up seneca stack
+seneca({ log: logging})
+  .use('entity') // ORM management
+  .use('mongo-store', settings.mongo) // persistence storage
   .use('audit', settings)
-  .use('migration', settings)
   .use('staging', settings)
   .listen()

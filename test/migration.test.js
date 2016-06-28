@@ -1,5 +1,12 @@
 var test = require('ava')
 var Promise = require('bluebird')
+var pgp = require('pg-promise')()
+
+var settings = require('../config.js').testing
+
+// set a different redis database for parallel testing
+settings.redis.database = 12
+var migrationQ = require('../queues/migration.js')(settings)
 
 var seneca = require('seneca')({
   log: {
@@ -7,50 +14,86 @@ var seneca = require('seneca')({
   }
 })
   .use('entity')
-  .use('mongo-store', {
-    name: 'scrutiny_testing',
-    host: '127.0.0.1',
-    port: 27017
-  })
-  .use('../audit.js')
-  .use('../migration.js')
-  .use('../staging.js')
+  .use('mongo-store', settings.mongo)
+  .use('../staging.js', settings)
 
 test.cb.beforeEach(t => {
-  var audit = seneca.make('audits', {})
-  audit.native$(function (err, db) {
+  var stage = seneca.make('stages', {})
+  stage.native$(function (err, db) {
     db.dropDatabase(function (err, res) {
       t.end()
     })
   })
 })
 
-test('execute migration', t => {
-  var act = Promise.promisify(seneca.act, {context: seneca})
+test.cb('execute migration', t => {
 
-  return act({role: 'staging', action: 'create', name: 'stage_test', table: 'test', server_name: 'prod_db'})
-    .then((stage) => {
-      return act({role: 'audit', action: 'create', job_id: 124, stage_id: stage.id})
-    })
-    .then((audit) => {
-      return act({role: 'migration', action: 'execute', audit: audit})
-    })
-    .then(() => {
-      t.pass()
-    })
+  // fake job
+  var job = {
+    audit: {
+      name: 'test',
+      job_id: 123,
+      stage: {
+        staging_table: 'staging_test',
+        foreign_table: 'foreign_test'
+      }
+    }
+  }
+
+  migrationQ.execute.on('completed', (job, result) => {
+    t.pass()
+    t.end()
+  })
+
+  migrationQ.execute.on('failed', (job, err) => {
+    console.log(err)
+    t.fail()
+    t.end()
+  })
+
+  seneca.act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'}, (err, result) => {
+    if (err) {
+      console.log(err)
+      t.fail()
+      t.end()
+    } else {
+      migrationQ.execute.add(job)
+    }
+  })
 })
 
-test('drop migration', t => {
-  var act = Promise.promisify(seneca.act, {context: seneca})
+test.cb('drop migration', t => {
 
-  return act({role: 'staging', action: 'create', name: 'stage_test', table: 'test', server_name: 'prod_db'})
-    .then((stage) => {
-      return act({role: 'audit', action: 'create', job_id: 124, stage_id: stage.id})
-    })
-    .then((audit) => {
-      return act({role: 'migration', action: 'drop', audit: audit})
-    })
-    .then(() => {
-      t.pass()
-    })
+  // fake job
+  var job = {
+    audit: {
+      name: 'test',
+      job_id: 123,
+      stage: {
+        staging_table: 'staging_test',
+        foreign_table: 'foreign_test'
+      }
+    }
+  }
+
+  migrationQ.drop.on('completed', (job, result) => {
+    t.pass()
+    t.end()
+  })
+
+  migrationQ.drop.on('failed', (job, err) => {
+    t.fail(err)
+    console.log(err)
+    t.end()
+  })
+
+  seneca.act({role: 'staging', action: 'create', name: 'test_stage', table: 'test', server_name: 'prod_db'}, (err, result) => {
+    if (err) {
+      t.fail()
+      console.log(err)
+      t.end()
+    } else {
+      migrationQ.drop.add(job)
+    }
+  })
 })

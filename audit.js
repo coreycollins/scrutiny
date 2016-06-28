@@ -4,6 +4,7 @@ var rp = require('request-promise')
 
 module.exports = function audit (options) {
   var hipchat
+  var migrationQ
 
   function _addAuditToHipchat (audit) {
     var options = {
@@ -29,8 +30,12 @@ module.exports = function audit (options) {
 
   // initialize hipchat
   this.add('init:audit', function (msg, done) {
+    console.log('initialized audit micro plugin')
     var options = this.options().audit
     hipchat = options.hipchat
+
+    // initialize background queues
+    migrationQ = require('./queues/migration.js')(options)
     done()
   })
 
@@ -230,9 +235,11 @@ module.exports = function audit (options) {
         return
       }
 
-      act({role: 'migration', action: 'execute', audit: audit})
+      // Add to migration drop queue for background processing
+      migrationQ.execute.add({audit: audit})
         .then(() => {
-          audit.status = 'approved'
+          // Update audit
+          audit.status = 'migrating'
           return _upsert(this, audit)
         })
         .then((audit) => {
@@ -240,6 +247,7 @@ module.exports = function audit (options) {
         })
         // TODO: catch specific error
         .catch((err) => {
+          console.log(err)
           done(err)
         })
     })
@@ -255,8 +263,10 @@ module.exports = function audit (options) {
 
       if (err) { done(err); return }
 
-      act({role: 'migration', action: 'drop', audit: audit})
+      // Add to migration drop queue for background processing
+      migrationQ.drop.add({audit: audit})
         .then(() => {
+          // Update audit
           audit.status = 'rejected'
           return _upsert(this, audit)
         })
